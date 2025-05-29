@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>卡牌美食抽选</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  
+  <!-- 动画库 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+  
+  <!-- 配置Tailwind主题 -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#FF4B2B',
+            secondary: '#FF7B54',
+            accent: '#FFB26B',
+            light: '#FFF5F3',
+            dark: '#333333',
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+        },
+      }
+    }
+  </script>
+  
+  <!-- 自定义工具类 -->
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .card-shadow {
+        box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+      }
+      .text-shadow {
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.15);
+      }
+      .rotate-y-180 {
+        transform: rotateY(180deg);
+      }
+      .preserve-3d {
+        transform-style: preserve-3d;
+      }
+      .backface-hidden {
+        backface-visibility: hidden;
+      }
+      .perspective {
+        perspective: 1000px;
+      }
+    }
+  </style>
+  
+  <style>
+    /* 全局样式 */
+    body {
+      overflow-x: hidden;
+      background: linear-gradient(135deg, #FFF5F3 0%, #FFEFEB 100%);
+    }
+
+    /* 结果页面样式 */
+    .result-stage {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      text-align: center;
+      background: white;
+    }
+
+    .confetti {
+      position: fixed;
+      width: 10px;
+      height: 10px;
+      background: #FF4B2B;
+      animation: confettiFall 3s linear infinite;
+    }
+
+    @keyframes confettiFall {
+      0% { transform: translateY(-100vh) rotate(0deg); }
+      100% { transform: translateY(100vh) rotate(360deg); }
+    }
+
+    .result-title {
+      font-size: 2.5rem;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 1rem;
+    }
+
+    .result-food {
+      font-size: 1.8rem;
+      color: #FF4B2B;
+      margin-bottom: 2rem;
+    }
+
+    /* 卡牌转盘样式 */
+    .card-stage {
+      display: none;
+      position: relative;
+      min-height: 100vh;
+      padding: 2rem 0;
+    }
+    
+    .card-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 0 auto;
+      max-width: 90vw;
+    }
+    
+    .card-row {
+      display: flex;
+      justify-content: center;
+      margin: 0.5rem 0;
+      width: 100%;
+    }
+    
+    .card {
+      width: 100px;
+      height: 150px;
+      margin: 0 0.75rem;
+      cursor: pointer;
+      transform-style: preserve-3d;
+      transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    
+    .card:hover:not(.flipped) {
+      transform: translateY(-10px) scale(1.05);
+      z-index: 10;
+    }
+    
+    .card-inner {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.6s;
+    }
+    
+    .card.flipped .card-inner {
+      transform: rotateY(180deg);
+    }
+    
+    .card-front, .card-back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      border-radius: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      font-weight: bold;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    }
+    
+    .card-front {
+      background: linear-gradient(135deg, #FFB26B 0%, #FF7B54 100%);
+      color: white;
+      transform: rotateY(0deg);
+    }
+    
+    .card-back {
+      background: linear-gradient(135deg, #FFFFFF 0%, #F9F9F9 100%);
+      color: #FF4B2B;
+      transform: rotateY(180deg);
+      border: 2px solid #FF4B2B;
+    }
+    
+    /* 按钮样式 */
+    .btn {
+      padding: 0.8rem 2.5rem;
+      border-radius: 30px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      outline: none;
+      border: none;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #FF4B2B 0%, #FF7B54 100%);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(255, 75, 43, 0.3);
+    }
+    
+    .btn-secondary {
+      background: white;
+      color: #FF4B2B;
+      border: 2px solid #FF4B2B;
+    }
+    
+    .btn-secondary:hover {
+      background: #FFF5F3;
+      transform: translateY(-2px);
+    }
+    
+    /* 选择界面样式 */
+    .selection-stage {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem;
+      border-radius: 1.5rem;
+      background: white;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      animation: fadeInUp 0.5s ease-out;
+    }
+    
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .food-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 1rem;
+    }
+    
+    .food-item {
+      padding: 1rem;
+      border: 2px solid #eee;
+      border-radius: 0.75rem;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      background-color: white;
+    }
+    
+    .food-item:hover {
+      border-color: #FF4B2B;
+      transform: translateY(-2px);
+    }
+    
+    .food-item.selected {
+      border-color: #FF4B2B;
+      background-color: #FFF5F3;
+      color: #FF4B2B;
+      font-weight: 600;
+    }
+    
+    /* 餐次选择界面样式 */
+    .meal-stage {
+      max-width: 400px;
+      margin: 0 auto;
+      padding: 2rem;
+      border-radius: 1.5rem;
+      background: white;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      animation: fadeInUp 0.5s ease-out;
+    }
+    
+    /* 登录界面样式 */
+    .login-stage {
+      max-width: 400px;
+      margin: 0 auto;
+      padding: 2rem;
+      border-radius: 1.5rem;
+      background: white;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      animation: fadeInUp 0.5s ease-out;
+    }
+    
+    /* 响应式调整 */
+    @media (max-width: 600px) {
+      .card {
+        width: 70px;
+        height: 105px;
+        margin: 0 0.5rem;
+      }
+      
+      .card-container {
+        max-width: 95vw;
+      }
+      
+      .card-row {
+        margin: 0.3rem 0;
+      }
+      
+      .result-title {
+        font-size: 2rem;
+      }
+      
+      .result-food {
+        font-size: 1.5rem;
+      }
+    }
+    
+    /* 提示信息样式 */
+    .hint {
+      color: #666;
+      font-size: 0.9rem;
+      margin-top: 0.5rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body class="font-sans">
+  <!-- 登录界面 -->
+  <div class="login-stage" id="loginStage" style="display: block;">
+    <div class="max-w-md mx-auto bg-white p-6 rounded-lg shadow-lg">
+      <h2 class="text-2xl font-bold text-center text-dark mb-6">登录验证</h2>
+      <div class="mb-4">
+        <label for="password" class="block text-gray-700 font-medium mb-2">密码：</label>
+        <input type="password" id="password" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-primary" placeholder="请输入密码">
+      </div>
+      <div class="text-center">
+        <button class="btn btn-primary" id="loginBtn">登录</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 餐次选择界面 -->
+  <div class="meal-stage" id="mealStage" style="display: none;">
+    <div class="max-w-md mx-auto bg-white p-6 rounded-lg shadow-lg">
+      <h2 class="text-2xl font-bold text-center text-dark mb-6">选择用餐时段</h2>
+      <div class="grid grid-cols-1 gap-4">
+        <button class="btn btn-primary meal-btn" data-meal="早餐">早餐</button>
+        <button class="btn btn-primary meal-btn" data-meal="午餐">午餐</button>
+        <button class="btn btn-primary meal-btn" data-meal="晚餐">晚餐</button>
+        <button class="btn btn-primary meal-btn" data-meal="夜宵">夜宵</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 选择界面 -->
+  <div class="selection-stage" id="selectionStage" style="display: none;">
+    <h2 class="text-2xl font-bold text-center text-dark mb-6"></h2>
+    <div class="food-grid" id="foodGrid"></div>
+    <div class="hint mt-4">点击+号添加新食物</div>
+    <div class="text-center mt-8">
+      <button class="btn btn-primary" id="submitBtn">开始抽选</button>
+    </div>
+  </div>
+
+  <!-- 卡牌转盘 -->
+  <div class="card-stage" id="cardStage" style="display: none;">
+    <div class="text-center mb-8">
+      <h2 class="text-2xl font-bold text-dark">美食卡牌抽选</h2>
+      <p class="text-gray-600 mt-2">点击卡牌查看背后的美食</p>
+    </div>
+    <div class="card-container" id="cardContainer"></div>
+    <div class="text-center mt-6">
+      <button class="btn btn-secondary" id="resetBtn">重新选择</button>
+    </div>
+  </div>
+
+  <!-- 结果展示页面 -->
+  <div class="result-stage" id="resultStage">
+    <div class="confetti-container"></div>
+    <h1 class="result-title animate__animated animate__bounce">恭喜！</h1>
+    <p class="result-food" id="resultText"></p>
+    <button class="btn btn-primary mt-4" id="backToMealBtn">返回餐次选择</button>
+  </div>
+
+  <script>
+    // 初始化数据
+    const breakfastFoods = ['八宝粥', '油条', '包子', '面包', '肠粉', '鸡蛋灌饼', '馄饨', '饺子', '牛奶', '豆浆', '豆花', '烧卖', '手抓饼', '燕麦粥', '玉米', '馒头', '发糕', '芝麻球', '豆腐脑', '小米粥'];
+    const lunchFoods = ['辣椒炒肉', '炒面', '炒饭', '拉面', '炸鸡汉堡', '麻辣烫', '米线', '自选菜', '煲仔饭', '便当', '炒河粉', '红烧肉', '鱼香肉丝', '宫保鸡丁', '酸菜鱼', '火锅', '披萨', '烤肉', '意面', '沙拉'];
+    const dinnerFoods = ['火锅', '烤肉', '麻辣烫', '铁板烧', '麻辣香锅', '烤鱼', '自助餐', '寿司', '炸鸡汉堡', '意面', '黄焖鸡', '糖醋排骨', '滑蛋饭', '番茄炒蛋', '啤酒鸭', '麻婆豆腐', '回锅肉', '石锅拌饭', '部队锅', '红烧肉'];
+    const supperFoods = ['牛肉串', '羊肉串', '卤味', '糖水', '手抓饼', '烤冷面', '炸鸡架', '炸鸡排', '蛋糕', '烤面筋', '烤鸡翅', '烤肉肠', '烤五花肉', '炒田螺', '花甲粉丝', '奶茶', '冰粉', '小龙虾', '烤鱼', '烤生蚝'];
+    let selectedFoods = [];
+    let currentMeal = ''; // 记录当前选择的餐次
+    let flippedCard = null; // 记录已翻开的卡片
+    let isResultShown = false; // 防止重复显示结果
+
+    // 初始化登录界面
+    function initLogin() {
+      const loginBtn = document.getElementById('loginBtn');
+      const passwordInput = document.getElementById('password');
+      loginBtn.addEventListener('click', () => {
+        if (passwordInput.value === '123456') {
+          document.getElementById('loginStage').style.display = 'none';
+          document.getElementById('mealStage').style.display = 'block';
+        } else {
+          alert('密码错误，请重新输入！');
+          passwordInput.value = '';
+        }
+      });
+    }
+
+    // 初始化餐次选择界面
+    function initMealSelection() {
+      document.querySelectorAll('.meal-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          currentMeal = btn.dataset.meal; // 记录选择的餐次
+          document.getElementById('mealStage').style.display = 'none';
+          document.getElementById('selectionStage').style.display = 'block';
+          // 更新选择界面标题
+          document.querySelector('#selectionStage h2').textContent = `请选择您想吃的${currentMeal}（最多9种）`;
+          initSelection();
+        });
+      });
+    }
+
+    // 初始化选择界面
+    function initSelection() {
+      const foodGrid = document.getElementById('foodGrid');
+      foodGrid.innerHTML = ''; // 清空原有内容
+      // 根据当前餐次获取对应食物列表
+      let currentFoods = [];
+      switch(currentMeal) {
+        case '早餐': currentFoods = breakfastFoods; break;
+        case '午餐': currentFoods = lunchFoods; break;
+        case '晚餐': currentFoods = dinnerFoods; break;
+        case '夜宵': currentFoods = supperFoods; break;
+      }
+      currentFoods.forEach(food => {
+        const item = document.createElement('div');
+        item.className = 'food-item';
+        item.textContent = food;
+        item.addEventListener('click', () => {
+          if (selectedFoods.length >= 9 &&!selectedFoods.includes(food)) {
+            alert('最多只能选择9种食物哦！');
+            return;
+          }
+          
+          if (selectedFoods.includes(food)) {
+            selectedFoods = selectedFoods.filter(f => f!== food);
+            item.classList.remove('selected');
+          } else {
+            selectedFoods.push(food);
+            item.classList.add('selected');
+          }
+        });
+        foodGrid.appendChild(item);
+      });
+      
+      // 添加加号按钮
+      const plusItem = document.createElement('div');
+      plusItem.className = 'food-item';
+      plusItem.innerHTML = '<i class="fa fa-plus"></i>';
+      plusItem.style.fontSize = '1.5rem';
+      plusItem.style.color = '#999';
+      plusItem.addEventListener('click', () => {
+        const newFood = prompt('请输入新食物名称：');
+        if (newFood && newFood.trim() &&!selectedFoods.includes(newFood.trim())) {
+          const foodName = newFood.trim();
+          // 检查是否已在当前餐次食物列表中
+          if (!currentFoods.includes(foodName)) {
+            currentFoods.push(foodName);
+          }
+          
+          // 添加到选择列表
+          selectedFoods.push(foodName);
+          
+          // 创建新的食物项
+          const newItem = document.createElement('div');
+          newItem.className = 'food-item selected';
+          newItem.textContent = foodName;
+          newItem.addEventListener('click', () => {
+            selectedFoods = selectedFoods.filter(f => f!== foodName);
+            newItem.classList.remove('selected');
+          });
+          
+          // 插入到加号按钮前
+          foodGrid.insertBefore(newItem, plusItem);
+        }
+      });
+      foodGrid.appendChild(plusItem);
+      
+      // 提交按钮
+      document.getElementById('submitBtn').addEventListener('click', () => {
+        if (selectedFoods.length === 0) {
+          alert('请至少选择一种食物！');
+          return;
+        }
+        
+        document.getElementById('selectionStage').style.display = 'none';
+        document.getElementById('cardStage').style.display = 'block';
+        initCardLayout();
+      });
+      
+      // 重置按钮
+      document.getElementById('resetBtn').addEventListener('click', () => {
+        document.getElementById('cardStage').style.display = 'none';
+        document.getElementById('selectionStage').style.display = 'block';
+        resetCardState();
+      });
+    }
+
+    // 重置卡牌状态
+    function resetCardState() {
+      selectedFoods = [];
+      flippedCard = null;
+      isResultShown = false;
+      
+      // 移除所有已选状态
+      document.querySelectorAll('.food-item').forEach(item => {
+        item.classList.remove('selected');
+      });
+      
+      // 移除所有卡牌的flipped类
+      document.querySelectorAll('.card').forEach(card => {
+        card.classList.remove('flipped');
+      });
+    }
+
+    // 根据食物数量计算布局
+    function calculateRowsCols(count) {
+      if (count === 1) return [[1]];
+      if (count === 2) return [[2]];
+      if (count === 3) return [[3]];
+      if (count === 4) return [[2], [2]];
+      if (count === 5) return [[2], [3]];
+      if (count === 6) return [[3], [3]];
+      if (count === 7) return [[3], [4]];
+      if (count === 8) return [[4], [4]];
+      if (count === 9) return [[3], [3], [3]];
+      return [[count]]; // 默认情况
+    }
+
+    // Fisher-Yates 随机排序算法
+    function shuffleArray(array) {
+      const newArray = [...array];
+      for (let i = newArray.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+      }
+      return newArray;
+    }
+
+    // 初始化卡牌布局
+    function initCardLayout() {
+      const cardContainer = document.getElementById('cardContainer');
+      cardContainer.innerHTML = ''; // 清空容器
+      
+      // 随机排序食物列表
+      const shuffledFoods = shuffleArray(selectedFoods);
+      
+      const count = shuffledFoods.length;
+      const rowsCols = calculateRowsCols(count);
+      
+      let foodIndex = 0;
+      
+      // 创建行
+      rowsCols.forEach(row => {
+        const rowElement = document.createElement('div');
+        rowElement.className = 'card-row';
+        
+        // 计算该行的卡牌数量
+        const cardsInRow = row[0];
+        
+        // 创建卡牌
+        for (let i = 0; i < cardsInRow && foodIndex < count; i++) {
+          const food = shuffledFoods[foodIndex];
+          
+          // 创建卡牌元素
+          const card = document.createElement('div');
+          card.className = 'card';
+          
+          // 卡牌内部结构
+          card.innerHTML = `
+            <div class="card-inner">
+              <div class="card-front">?</div>
+              <div class="card-back">${food}</div>
+            </div>
+          `;
+          
+          // 添加点击事件
+          card.addEventListener('click', () => {
+            if (flippedCard || card.classList.contains('flipped') || isResultShown) return;
+            
+            flippedCard = card;
+            card.classList.add('flipped');
+            
+            // 显示结果页面
+            showResult(food);
+          });
+          
+          rowElement.appendChild(card);
+          foodIndex++;
+        }
+        
+        cardContainer.appendChild(rowElement);
+      });
+    }
+
+    // 显示结果页面
+    function showResult(food) {
+      isResultShown = true;
+      document.getElementById('cardStage').style.display = 'none';
+      document.getElementById('resultStage').style.display = 'flex';
+      document.getElementById('resultText').textContent = `今天的${currentMeal}是：${food}`;
+      
+      // 生成撒花效果
+      const confettiContainer = document.querySelector('.confetti-container');
+      confettiContainer.innerHTML = ''; // 清空原有撒花元素
+      
+      for (let i = 0; i < 200; i++) {
+        const confetti = document.createElement('div');
+        confetti.className = 'confetti';
+        confetti.style.left = `${Math.random() * 100}%`;
+        confetti.style.top = '-5%';
+        confetti.style.background = `hsl(${Math.random() * 360}, 70%, 60%)`; // 随机颜色
+        confetti.style.animationDuration = `${Math.random() * 3 + 2}s`; // 随机动画持续时间
+        confetti.style.opacity = `${Math.random() * 0.8 + 0.2}`; // 随机透明度
+        confetti.style.width = `${Math.random() * 10 + 5}px`; // 随机宽度
+        confetti.style.height = `${Math.random() * 10 + 5}px`; // 随机高度
+        confettiContainer.appendChild(confetti);
+      }
+      
+      // 返回按钮事件
+      document.getElementById('backToMealBtn').addEventListener('click', () => {
+        document.getElementById('resultStage').style.display = 'none';
+        document.getElementById('mealStage').style.display = 'block';
+        resetCardState();
+        // 清除撒花元素
+        document.querySelectorAll('.confetti').forEach(confetti => confetti.remove());
+      });
+    }
+
+    // 启动应用
+    window.addEventListener('DOMContentLoaded', () => {
+      initLogin();
+      initMealSelection();
+    });
+  </script>
+</body>
+</html>  
